@@ -6,7 +6,7 @@
 #include <stdint.h>
 
 
-#define ALIGNMENT 16   // Must be power of 2
+#define ALIGNMENT 16  
 #define GET_PAD(x) ((ALIGNMENT - 1) - (((x) - 1) & (ALIGNMENT - 1)))
 
 #define PTR_OFFSET(p, offset) ((void*)((char *)(p) + (offset)))
@@ -16,8 +16,8 @@
 
 
 struct block {
-    int size;            // Size in bytes
-    int in_use;          // Boolean
+    int size;            
+    int in_use;          
     struct block *next;
 };
 
@@ -51,16 +51,46 @@ void *myalloc(int size){
     struct block *current = head;
 
     while (current != NULL) {
-        if (!current->in_use && (size_t)current->size >= padded_size) {
-            current->in_use = 1;
 
-            return PTR_OFFSET(current, sizeof(struct block));
+        if (!current->in_use && (size_t)current->size >= padded_size) {
+            size_t unused_space = current->size - padded_size - PADDED_SIZE(sizeof(struct block));
+
+            if (unused_space >= sizeof(struct block)) {
+                struct block *new_block = (struct block *)PTR_OFFSET(current, padded_size);
+
+                new_block->size =  unused_space;
+                new_block->in_use = 0;
+                new_block->next = current->next;
+
+                current->size = padded_size;
+                current->in_use = 1;
+                current->next = new_block;
+
+            } else {
+                current->in_use = 1;
+
+            }
+                return PTR_OFFSET(current, sizeof(struct block));
+
         }
 
         current = current->next;
     }
 
     return NULL;
+
+}
+
+
+void myfree(void *ptr) {
+
+    if (ptr == NULL) {
+        return;
+    }
+
+    struct block *freed_block = (struct block *)((char *)ptr - sizeof(struct block));
+
+    freed_block->in_use = 0;
 
 }
 
@@ -92,13 +122,31 @@ void print_data(void)
 
 
 int main(void) {
-    
-    void *p;
 
-    print_data();
-    p = myalloc(16);
-    print_data();
-    p = myalloc(16);
-    printf("%p\n", p);
+void *p;
+
+p = myalloc(512);
+print_data();
+
+myfree(p);
+print_data();
+
+
+// myalloc(10); print_data();
+// myalloc(20); print_data();
+// myalloc(30); print_data();
+// myalloc(40); print_data();
+// myalloc(50); print_data();
+
+
+    
+// void *p;
+
+// myalloc(10);     print_data();
+// p = myalloc(20); print_data();
+// myalloc(30);     print_data();
+// myfree(p);       print_data();
+// myalloc(40);     print_data();
+// myalloc(10);     print_data();
 
 }
